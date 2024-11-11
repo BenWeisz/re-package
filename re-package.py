@@ -1,6 +1,9 @@
 import os
-from typing import Dict, List, Tuple
 import re
+import sys
+import json
+
+from typing import Dict, List, Tuple
 from enum import Enum
 
 GREEN = "\033[32m"
@@ -145,12 +148,17 @@ def collect_code_files(config: Dict) -> List[CodeFile]:
 
 def topo_sort_code_files(code_files: List[CodeFile]) -> Tuple[List[CodeFile], List[CodeFile]]:
     """Perform a topological sorting of the CodeFile instances."""
-    
+
     source_code_files = list(filter(lambda code_file: code_file.type == CodeFileType.SOURCE, code_files))
     header_code_files = list(filter(lambda code_file: code_file.type == CodeFileType.HEADER, code_files))
     
+    header_code_files_len = len(header_code_files)
+
     top_sorted_code_files = []
     while len(header_code_files) > 0:
+        print("Topo-sort pass on headers: [" + 
+              GREEN + f"{header_code_files_len - len(header_code_files) + 1}" + 
+              END + "/" + GREEN + f"{header_code_files_len}" + END + "]", end="\r")
         min_index = 0
         min_element = 100000
         for element_i, element in enumerate(header_code_files):
@@ -170,6 +178,7 @@ def topo_sort_code_files(code_files: List[CodeFile]) -> Tuple[List[CodeFile], Li
                 del element.dependencies[element_i]
 
         del header_code_files[min_index]
+    print("")
 
     return top_sorted_code_files, source_code_files
 
@@ -177,6 +186,7 @@ def assemble_uber_file(config: Dict, header_code_files: List[CodeFile], source_c
     """Assemble the uber list of code lines from the header and source code files."""
     uber_lines = []
 
+    print("Assembling code files ...")
 
     # Add the header file lines
     for header_code_file in header_code_files:
@@ -198,12 +208,15 @@ def assemble_uber_file(config: Dict, header_code_files: List[CodeFile], source_c
 def create_uber_file(config: Dict) -> None:
     """Create uber file and write it out to disk."""
 
+
     # Collect all of the code files and their contents / dependencies
     code_files = collect_code_files(config)
 
     # Sort the code files based on their dependencies
     header_code_files, source_code_files = topo_sort_code_files(code_files)
 
+    print("Creating uber file ...")
+    
     # Assemble the uber file lines
     uber_lines = assemble_uber_file(config, header_code_files, source_code_files)
     
@@ -214,18 +227,15 @@ def create_uber_file(config: Dict) -> None:
             out_file.write(line)
 
 if __name__ == "__main__":
-    config = {
-        "name": "cjson",
-        "root": "/Users/dev/cjson",
-        "source-extensions": [".c"],
-        "header-extensions": [".h"],
-        "patterns": [
-            "+/src",
-            "+/include",
-            "-/src/io.c",
-            "-/include/io.h"
-        ]
-    } 
+    if len(sys.argv) != 2:
+        print("Please call the re-pacakage as follows:\n\tpython re-pacakage.py config.json\n\nSee /templates for examples of config.json files")
+        exit()
 
+    # Load the config file
+    with open(sys.argv[1], "r") as in_file:
+        config = json.load(in_file)
+
+    # Create the uber files
     create_uber_file(config)
+    print(f"Completed: Output written to {config["root"]}/{config["name"]}.h")
     
