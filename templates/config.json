@@ -1,0 +1,12 @@
+{
+	"name": "cjson",
+	"root": "/Users/dev/cjson",
+	"source-extensions": [".c"],
+	"header-extensions": [".h"],
+	"patterns": [
+		"+/src",
+		"+/include",
+		"-/src/io.c",
+		"-/include/io.h"
+	]
+} 
